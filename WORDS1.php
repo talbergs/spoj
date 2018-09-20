@@ -1,167 +1,86 @@
-<?php declare(strict_types=1);
+<?php
 
 /**
  * https://www.spoj.com/problems/WORDS1/
  */
 
-$dataCtn = (int)fgets(STDIN);
-
-while (--$dataCtn > -1) {
-    $size = (int) fgets(STDIN);
-    $lines = [];
-
-    while (--$size > -1) {
-        $lines[] = trim(fgets(STDIN));
-    }
-
-    echo (new Graph($lines))->hasEulerPath()
-        ? "Ordering is possible.\n"
-        : "The door cannot be opened.\n";
+fscanf(STDIN, '%d', $dataCtn);
+while ($dataCtn--) {
+    echo run() . PHP_EOL;
 }
 
-class Vertex
+function run()
 {
-    /**
-     * @var int
-     */
-    protected $value;
-    /**
-     * @var int
-     */
-    protected $weight;
+    fscanf(STDIN, "%d", $n);
+    $G = new_g($n * 2);
+    $SE = [];
 
-    public function __construct(int $value, int $weight)
-    {
-        $this->value = $value;
-        $this->weight = $weight;
+    $i = 0;
+    while ($n--) {
+        fscanf(STDIN, '%s', $w);
+
+        $s = $w[0];
+        $e = $w[strlen($w) - 1];
+
+        $i += 2;
+        // link start -> end nodes per word
+        $G[$i - 2][$i - 1] = 1;
+        $SE[$i] = [$s, $e];
     }
 
-    public function connects(Vertex $vertex): bool
-    {
-        if ($this->value === $vertex->getValue()) {
-            $this->weight ++;
-            $vertex->weight ++;
-
-            return true;
+    // link all ends towards all starts (except current edges start)
+    foreach ($SE as $I => $se) {
+        foreach ($SE as $I_ => $se_) {
+            if ($I_ === $I) continue;
+            if ($se[1] === $se_[0]) {
+                $G[$I - 1][$I_ - 2] = 1;
+            }
         }
-
-        return false;
     }
 
-    /**
-     * @return int
-     */
-    public function getWeight(): int
-    {
-        return $this->weight;
-    }
-
-    /**
-     * @return int
-     */
-    public function getValue(): int
-    {
-        return $this->value;
+    // if all edges were visited, then it's linked
+    $vis = [];
+    dfs($G, $vis, 0);
+    if (array_sum($vis) === count($G)) {
+        return "Ordering is possible.";
+    } else {
+        return "The door cannot be opened.";
     }
 }
 
-class Edge
+function new_g(int $size)
 {
-    /**
-     * @var int
-     */
-    public $startNode;
-    /**
-     * @var int
-     */
-    public $endNode;
-
-    public function __construct(int $start, int $end)
-    {
-        $this->startNode = new Vertex($start, 1);
-        $this->endNode = new Vertex($end, 1);
+    $adj = new SplFixedArray($size);
+    for ($i = 0; $i < $size; $i++) {
+        $adj[$i] = new SplFixedArray($size);
+        for ($j = 0; $j < $size; $j++) {
+            $adj[$i][$j] = 0;
+        }
     }
+    return $adj;
 }
 
-class Graph
+function dfs(&$G, &$vis, $row)
 {
-    /**
-     * @var Edge[]
-     */
-    public $edges = [];
-
-    /**
-     * @var bool
-     */
-    protected $disconnections = 0;
-
-    public function __construct(array $lines)
-    {
-        foreach ($lines as $line) {
-            $this->edges[] = new Edge(
-                ord(substr($line, 0, 1)),
-                ord(substr($line, -1, 1))
-            );
-        }
-
-        $floatingEdges = [];
-        foreach ($this->edges as $index => $testEdge) {
-            $anyConnection = false;
-            foreach ($this->edges as $expIndex => $edge) {
-                if ($expIndex === $index) continue;
-                $connected = $testEdge->startNode->connects($edge->endNode);
-                if ($connected && !$anyConnection) {
-                    $anyConnection = true;
-                }
-            }
-
-            if (!$anyConnection) {
-                $floatingEdges[] = $testEdge;
-            }
-        }
-
-        if ($floatingEdges) {
-            foreach ($floatingEdges as $edge) {
-                if (
-                    $edge->endNode->getWeight() < 2
-                    && $edge->startNode->getWeight() < 2
-                ) {
-                    $this->disconnections = 2;
-                }
-            }
-        }
-    }
-
-    public function isConnected(): bool
-    {
-        return $this->disconnections < 2;
-    }
-
-    public function hasEulerPath(): bool
-    {
-        if (!$this->isConnected()) {
-            return false;
-        }
-
-        $oddCtn = 0;
-
-        foreach ($this->vertexes() as $vertex) {
-            if ($vertex->getWeight() % 2) {
-                $oddCtn ++;
-            }
-        }
-
-        return boolval($oddCtn % 2 === 0);
-    }
-
-    /**
-     * @return Generator|Vertex[]
-     */
-    protected function vertexes()
-    {
-        foreach ($this->edges as $e) {
-            yield $e->startNode;
-            yield $e->endNode;
+    $vis[$row] = 1;
+    foreach ($G[$row] as $i => $node) {
+        if ($node === 1 && !isset($vis[$i])) {
+            //$G[$row][$i] = 0;
+            dfs($G, $vis, $i);
         }
     }
 }
+
+function dd($G, $N, $false = 0)
+{
+    echo '^\$ ' . implode(' ', $N) . PHP_EOL;
+    foreach ($G as $i => $row) {
+        echo $N[$i] . ' |';
+        foreach ($row as $j => $item) {
+            echo $item ? ' 1' : ' .';
+        }
+        echo PHP_EOL;
+    }
+    $false && die;
+}
+
